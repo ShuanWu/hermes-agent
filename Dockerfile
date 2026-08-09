@@ -461,12 +461,15 @@ ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
 # container down — an instant boot-crash-loop. Pin CMD to the same
 # `gateway run` invocation docker-compose.yml uses for headless deploys.
 #
-# Re-apply model.default on every boot: something in the cont-init.d chain
-# (root cause not pinned down — not docker_config_migrate.py, not the
+# Re-apply the model config on every boot: something in the cont-init.d
+# chain (root cause not pinned down — not docker_config_migrate.py, not the
 # model-alias migration in hermes_cli/config.py) resets config.yaml's
 # model.default back to the factory anthropic/claude-opus-4.6 on every
 # container restart, even though other manual config.yaml edits (e.g.
-# platforms.line.*) survive restarts untouched. Re-running `hermes config
-# set` immediately before the gateway starts wins the race regardless of
-# which earlier step is doing the reset.
-CMD [ "sh", "-c", "hermes config set model.default nvidia/nemotron-3-super-120b-a12b:free; exec hermes gateway run" ]
+# platforms.line.*) survive restarts untouched. Running
+# docker/bootstrap-model-config.py immediately before the gateway starts
+# wins the race regardless of which earlier step is doing the reset, and
+# writes custom_providers as a real YAML list (hand-rolled `hermes config
+# set custom_providers.0.x` calls turn it into a dict instead when the key
+# doesn't exist yet, which hermes then rejects at startup).
+CMD [ "sh", "-c", "python3 /opt/hermes/docker/bootstrap-model-config.py; exec hermes gateway run" ]
