@@ -454,4 +454,10 @@ VOLUME [ "/opt/data" ]
 # wrapper-as-ENTRYPOINT, leading-dash args like `--version` would be
 # intercepted by /init's POSIX shell.
 ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
-CMD [ ]
+# Zeabur (and other headless PaaS hosts) run the image with no args and no
+# TTY. The upstream default CMD [] falls through main-wrapper.sh's no-args
+# branch, which launches the interactive TUI; with no stdin attached that
+# hits EOF immediately, the "main program" exits, and s6-overlay tears the
+# container down — an instant boot-crash-loop. Pin CMD to the same
+# `gateway run` invocation docker-compose.yml uses for headless deploys.
+CMD [ "gateway", "run" ]
