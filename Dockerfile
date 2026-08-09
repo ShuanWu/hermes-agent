@@ -460,4 +460,13 @@ ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
 # hits EOF immediately, the "main program" exits, and s6-overlay tears the
 # container down — an instant boot-crash-loop. Pin CMD to the same
 # `gateway run` invocation docker-compose.yml uses for headless deploys.
-CMD [ "gateway", "run" ]
+#
+# Re-apply model.default on every boot: something in the cont-init.d chain
+# (root cause not pinned down — not docker_config_migrate.py, not the
+# model-alias migration in hermes_cli/config.py) resets config.yaml's
+# model.default back to the factory anthropic/claude-opus-4.6 on every
+# container restart, even though other manual config.yaml edits (e.g.
+# platforms.line.*) survive restarts untouched. Re-running `hermes config
+# set` immediately before the gateway starts wins the race regardless of
+# which earlier step is doing the reset.
+CMD [ "sh", "-c", "hermes config set model.default anthropic/claude-haiku-4.5; exec hermes gateway run" ]
