@@ -469,4 +469,4 @@ ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
 # platforms.line.*) survive restarts untouched. Re-running `hermes config
 # set` immediately before the gateway starts wins the race regardless of
 # which earlier step is doing the reset.
-CMD [ "sh", "-c", "hermes config set model.default anthropic/claude-haiku-4.5; exec hermes gateway run" ]
+CMD [ "sh", "-c", "hermes config set model.default nvidia/nemotron-3-super-120b-a12b:free; exec hermes gateway run" ]
