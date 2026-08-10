@@ -68,6 +68,20 @@ if os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "").strip():
         platforms_cfg["line"] = line_cfg
     line_cfg["enabled"] = True
 
+# Same reassertion for Telegram — it defaults to long-polling (no inbound
+# port/domain needed, unlike LINE's webhook), but platforms.telegram.enabled
+# is still subject to the same boot-time reset.
+if os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
+    platforms_cfg = cfg.setdefault("platforms", {})
+    if not isinstance(platforms_cfg, dict):
+        platforms_cfg = {}
+        cfg["platforms"] = platforms_cfg
+    telegram_cfg = platforms_cfg.setdefault("telegram", {})
+    if not isinstance(telegram_cfg, dict):
+        telegram_cfg = {}
+        platforms_cfg["telegram"] = telegram_cfg
+    telegram_cfg["enabled"] = True
+
 with open(PATH, "w") as f:
     yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
 
