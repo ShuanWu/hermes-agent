@@ -1,0 +1,8 @@
+name: todo-wiki
+version: 1.0.0
+description: >
+  Deterministic /todo, /done, /del, /wiki slash commands. Each command calls
+  back to a local HTTP API (macmini.taila4f347.ts.net/todo-api) that wraps
+  the Obsidian-backed todo/wiki store — no LLM involved, matching the
+  original todo-wiki-line dispatch_fast() behavior.
+author: "ShuanWu"

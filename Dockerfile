@@ -472,4 +472,10 @@ ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
 # writes custom_providers as a real YAML list (hand-rolled `hermes config
 # set custom_providers.0.x` calls turn it into a dict instead when the key
 # doesn't exist yet, which hermes then rejects at startup).
-CMD [ "sh", "-c", "python3 /opt/hermes/docker/bootstrap-model-config.py; exec hermes gateway run" ]
+#
+# Same reset behavior hits /opt/data/plugins/ (verified empirically: files
+# written there via `service exec` after boot are gone after the next
+# restart). docker/bootstrap-plugins.py re-copies image-baked plugins from
+# docker/plugins/ into place and re-adds them to config.yaml's
+# plugins.enabled list on every boot for the same reason.
+CMD [ "sh", "-c", "python3 /opt/hermes/docker/bootstrap-model-config.py; python3 /opt/hermes/docker/bootstrap-plugins.py; exec hermes gateway run" ]
