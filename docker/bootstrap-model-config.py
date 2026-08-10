@@ -10,6 +10,12 @@ correct, idempotent result regardless of prior state.
 
 OMNIROUTE_BASE_URL / OMNIROUTE_API_KEY come from Zeabur environment
 variables, not hardcoded here — this file lives in a public GitHub fork.
+
+OMNIROUTE_MODEL picks the model re-applied on every boot (default
+auto/best-free). Read from an env var rather than hardcoded so switching
+models via the dashboard's model picker only requires updating one Zeabur
+variable, not editing this file — a manual dashboard model change was
+getting silently reverted to a hardcoded value here otherwise.
 """
 import os
 import sys
@@ -20,6 +26,7 @@ PATH = "/opt/data/config.yaml"
 
 base_url = os.environ.get("OMNIROUTE_BASE_URL", "").strip()
 api_key = os.environ.get("OMNIROUTE_API_KEY", "").strip()
+model_default = os.environ.get("OMNIROUTE_MODEL", "").strip() or "auto/best-free"
 
 if not base_url or not api_key:
     print(
@@ -35,7 +42,7 @@ with open(PATH) as f:
 cfg.setdefault("model", {})
 cfg["model"]["provider"] = "custom"
 cfg["model"]["base_url"] = base_url
-cfg["model"]["default"] = "auto/best-free"
+cfg["model"]["default"] = model_default
 
 cfg["custom_providers"] = [
     {
