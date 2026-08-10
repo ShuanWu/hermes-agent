@@ -45,6 +45,22 @@ cfg["custom_providers"] = [
     }
 ]
 
+# Same reset behavior hits platforms.line.enabled (verified empirically:
+# `hermes config set platforms.line.enabled true` survives right up until
+# the next restart, then reads back as unset again). Reassert it here too
+# whenever real LINE credentials are present, since the whole point of this
+# deploy is Hermes owning the LINE webhook directly.
+if os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "").strip():
+    platforms_cfg = cfg.setdefault("platforms", {})
+    if not isinstance(platforms_cfg, dict):
+        platforms_cfg = {}
+        cfg["platforms"] = platforms_cfg
+    line_cfg = platforms_cfg.setdefault("line", {})
+    if not isinstance(line_cfg, dict):
+        line_cfg = {}
+        platforms_cfg["line"] = line_cfg
+    line_cfg["enabled"] = True
+
 with open(PATH, "w") as f:
     yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
 
