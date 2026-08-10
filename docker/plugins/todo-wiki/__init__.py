@@ -3,8 +3,23 @@ user's mac mini todo-api (see dev/code/todo-wiki-line/todo_api.py).
 
 Ports the exact command semantics of the original dispatch_fast()/
 dispatch_wiki_async() in that project's line_webhook.py, just triggered by
-`/todo` instead of a bare "todo " text prefix, so it can use Hermes's
-plugin command-registration bypass (no LLM call at all for these).
+slash commands instead of a bare "todo " text prefix, so it can use
+Hermes's plugin command-registration bypass (no LLM call at all for these).
+
+Commands are registered as ytodo/ydone/ydel/ywiki (a "y" prefix, not the
+bare todo/done/del/wiki names): Hermes has its own internal "todo" TOOL
+(tools/todo_tool.py — the agent's own multi-step task-planning scratchpad)
+that intercepted a bare `/todo` before this plugin's registered command
+ever got a chance to run, even though `hermes_cli/commands.py`'s
+COMMAND_REGISTRY has no such entry — confirmed empirically via a real
+LINE-webhook-signed test message (200 OK, but nothing ever reached
+todo_api.py), not just guessed. The `y` prefix sidesteps the collision
+entirely rather than trying to out-priority Hermes's own tool.
+
+Note: the `/ytodo`-style names below are ONLY the Hermes slash-command
+names. The HTTP paths this file calls on todo_api.py (/todo, /todo/list,
+/todo/close, /todo/delete, /wiki) are unrelated and unchanged — that's a
+separate local API with its own routing, see todo_api.py.
 """
 import asyncio
 import json
@@ -42,7 +57,7 @@ def _missing_key_reply() -> str:
     return "todo-wiki plugin 未設定 TODO_API_KEY 環境變數，無法連線 todo-api。"
 
 
-async def _handle_todo(raw_args: str) -> str:
+async def _handle_ytodo(raw_args: str) -> str:
     if not TODO_API_KEY:
         return _missing_key_reply()
     text = raw_args.strip()
@@ -58,12 +73,12 @@ async def _handle_todo(raw_args: str) -> str:
     return data.get("reply") or data.get("error", "未知錯誤")
 
 
-async def _handle_done(raw_args: str) -> str:
+async def _handle_ydone(raw_args: str) -> str:
     if not TODO_API_KEY:
         return _missing_key_reply()
     m = re.fullmatch(r"#?(\d+)", raw_args.strip())
     if not m:
-        return "用法：/done <編號>，例如 /done 3"
+        return "用法：/ydone <編號>，例如 /ydone 3"
     try:
         data = await _call("/todo/close", method="POST", body={"id": m.group(1)})
     except urllib.error.URLError as e:
@@ -71,12 +86,12 @@ async def _handle_done(raw_args: str) -> str:
     return data.get("reply") or data.get("error", "未知錯誤")
 
 
-async def _handle_del(raw_args: str) -> str:
+async def _handle_ydel(raw_args: str) -> str:
     if not TODO_API_KEY:
         return _missing_key_reply()
     m = re.fullmatch(r"#?(\d+)", raw_args.strip())
     if not m:
-        return "用法：/del <編號>，例如 /del 3"
+        return "用法：/ydel <編號>，例如 /ydel 3"
     try:
         data = await _call("/todo/delete", method="POST", body={"id": m.group(1)})
     except urllib.error.URLError as e:
@@ -84,12 +99,12 @@ async def _handle_del(raw_args: str) -> str:
     return data.get("reply") or data.get("error", "未知錯誤")
 
 
-async def _handle_wiki(raw_args: str) -> str:
+async def _handle_ywiki(raw_args: str) -> str:
     if not TODO_API_KEY:
         return _missing_key_reply()
     text = raw_args.strip()
     if not text:
-        return "用法：/wiki <內容或連結>"
+        return "用法：/ywiki <內容或連結>"
     try:
         data = await _call("/wiki", method="POST", body={"content": text})
     except urllib.error.URLError as e:
@@ -99,8 +114,8 @@ async def _handle_wiki(raw_args: str) -> str:
 
 def register(ctx) -> None:
     ctx.register_command(
-        "todo", handler=_handle_todo, description="建立/列出待辦（/todo <內容> 或 /todo list [#tag]）"
+        "ytodo", handler=_handle_ytodo, description="建立/列出待辦（/ytodo <內容> 或 /ytodo list [#tag]）"
     )
-    ctx.register_command("done", handler=_handle_done, description="標記待辦完成，例：/done 3")
-    ctx.register_command("del", handler=_handle_del, description="刪除待辦，例：/del 3")
-    ctx.register_command("wiki", handler=_handle_wiki, description="存進知識庫，例：/wiki <內容或連結>")
+    ctx.register_command("ydone", handler=_handle_ydone, description="標記待辦完成，例：/ydone 3")
+    ctx.register_command("ydel", handler=_handle_ydel, description="刪除待辦，例：/ydel 3")
+    ctx.register_command("ywiki", handler=_handle_ywiki, description="存進知識庫，例：/ywiki <內容或連結>")
