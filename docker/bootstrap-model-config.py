@@ -36,8 +36,16 @@ if not base_url or not api_key:
     )
     sys.exit(0)
 
-with open(PATH) as f:
-    cfg = yaml.safe_load(f) or {}
+os.makedirs(os.path.dirname(PATH), exist_ok=True)
+try:
+    with open(PATH) as f:
+        cfg = yaml.safe_load(f) or {}
+except FileNotFoundError:
+    # First boot on a fresh/reset volume — hermes hasn't written its own
+    # default config.yaml yet at this point in the boot sequence (this
+    # script runs before `hermes gateway run`). Start from an empty dict
+    # so the script still produces a valid config instead of crashing.
+    cfg = {}
 
 cfg.setdefault("model", {})
 cfg["model"]["provider"] = "custom"

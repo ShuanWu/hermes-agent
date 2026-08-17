@@ -45,8 +45,14 @@ else:
         installed.append(plugin_dir.name)
         print(f"bootstrap-plugins: installed {plugin_dir.name}")
 
-    with open(CONFIG_PATH) as f:
-        cfg = yaml.safe_load(f) or {}
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(CONFIG_PATH) as f:
+            cfg = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        # First boot on a fresh/reset volume — same race as
+        # bootstrap-model-config.py, hermes hasn't written config.yaml yet.
+        cfg = {}
 
     plugins_cfg = cfg.get("plugins")
     if not isinstance(plugins_cfg, dict):
