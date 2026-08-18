@@ -1,6 +1,14 @@
 """Todo/Wiki slash commands — deterministic bypass calling back to the
 user's mac mini todo-api (see dev/code/todo-wiki-line/todo_api.py).
 
+Handlers catch bare ``Exception`` (not just ``urllib.error.URLError``):
+gateway/run.py's plugin-command dispatch wraps the handler call in its own
+try/except and, on ANY exception escaping the handler, silently falls
+through to the full LLM agent turn instead of surfacing an error — the
+user sees the model improvising a confused answer instead of a fast, clear
+failure message. A narrower except here (e.g. only URLError) lets timeouts,
+JSON decode errors, or other transient failures slip through that gap.
+
 Ports the exact command semantics of the original dispatch_fast()/
 dispatch_wiki_async() in that project's line_webhook.py, just triggered by
 slash commands instead of a bare "todo " text prefix, so it can use
@@ -25,7 +33,6 @@ import asyncio
 import json
 import os
 import re
-import urllib.error
 import urllib.request
 
 TODO_API_URL = "https://macmini.taila4f347.ts.net/todo-api"
@@ -68,7 +75,7 @@ async def _handle_ytodo(raw_args: str) -> str:
             data = await _call(path)
         else:
             data = await _call("/todo", method="POST", body={"content": text})
-    except urllib.error.URLError as e:
+    except Exception as e:
         return f"todo-api 呼叫失敗：{e}"
     return data.get("reply") or data.get("error", "未知錯誤")
 
@@ -81,7 +88,7 @@ async def _handle_ydone(raw_args: str) -> str:
         return "用法：/ydone <編號>，例如 /ydone 3"
     try:
         data = await _call("/todo/close", method="POST", body={"id": m.group(1)})
-    except urllib.error.URLError as e:
+    except Exception as e:
         return f"todo-api 呼叫失敗：{e}"
     return data.get("reply") or data.get("error", "未知錯誤")
 
@@ -94,7 +101,7 @@ async def _handle_ydel(raw_args: str) -> str:
         return "用法：/ydel <編號>，例如 /ydel 3"
     try:
         data = await _call("/todo/delete", method="POST", body={"id": m.group(1)})
-    except urllib.error.URLError as e:
+    except Exception as e:
         return f"todo-api 呼叫失敗：{e}"
     return data.get("reply") or data.get("error", "未知錯誤")
 
@@ -107,7 +114,7 @@ async def _handle_ywiki(raw_args: str) -> str:
         return "用法：/ywiki <內容或連結>"
     try:
         data = await _call("/wiki", method="POST", body={"content": text})
-    except urllib.error.URLError as e:
+    except Exception as e:
         return f"todo-api 呼叫失敗：{e}"
     return data.get("reply") or data.get("error", "未知錯誤")
 
