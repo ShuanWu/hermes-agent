@@ -47,7 +47,7 @@ else:
 
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with open(CONFIG_PATH) as f:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
     except FileNotFoundError:
         # First boot on a fresh/reset volume — same race as
@@ -66,7 +66,7 @@ else:
     plugins_cfg["enabled"] = enabled
     cfg["plugins"] = plugins_cfg
 
-    with open(CONFIG_PATH, "w") as f:
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
 
     print(f"bootstrap-plugins: plugins.enabled = {enabled}")

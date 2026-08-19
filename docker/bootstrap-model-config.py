@@ -38,7 +38,7 @@ if not base_url or not api_key:
 
 os.makedirs(os.path.dirname(PATH), exist_ok=True)
 try:
-    with open(PATH) as f:
+    with open(PATH, encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
 except FileNotFoundError:
     # First boot on a fresh/reset volume — hermes hasn't written its own
@@ -90,7 +90,7 @@ if os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
         platforms_cfg["telegram"] = telegram_cfg
     telegram_cfg["enabled"] = True
 
-with open(PATH, "w") as f:
+with open(PATH, "w", encoding="utf-8") as f:
     yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
 
 print("bootstrap-model-config: applied omniroute custom provider config")
