@@ -16,13 +16,22 @@ auto/best-free). Read from an env var rather than hardcoded so switching
 models via the dashboard's model picker only requires updating one Zeabur
 variable, not editing this file — a manual dashboard model change was
 getting silently reverted to a hardcoded value here otherwise.
+
+PATH must be $HERMES_HOME/config.yaml, not a hardcoded /opt/data — /opt/data
+lives on the container's ephemeral root filesystem and is recreated empty on
+every restart, while $HERMES_HOME (the real persistent volume, /mnt/persist
+in this deployment) is where Hermes actually reads config.yaml from. An
+earlier hardcoded /opt/data path here meant this script was silently editing
+a scratch file nobody read, while the config.yaml that actually mattered had
+to be fixed manually via `hermes config set` at some point in the past and
+just happened to keep working because /mnt/persist genuinely persists.
 """
 import os
 import sys
 
 import yaml
 
-PATH = "/opt/data/config.yaml"
+PATH = os.path.join(os.environ["HERMES_HOME"], "config.yaml")
 
 base_url = os.environ.get("OMNIROUTE_BASE_URL", "").strip()
 api_key = os.environ.get("OMNIROUTE_API_KEY", "").strip()

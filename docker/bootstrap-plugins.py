@@ -1,33 +1,38 @@
 #!/usr/bin/env python3
-"""Re-install image-baked extra plugins/memory into $HERMES_HOME on every boot.
+"""Re-install image-baked extra plugins into $HERMES_HOME/plugins on every boot.
 
-/opt/data/plugins/ AND /opt/data/memories/ both get wiped by something in
-the cont-init.d chain on every container restart (same class of bug worked
-around in bootstrap-model-config.py for model.default — root cause not
-isolated: verified empirically that files written there via `service exec`
-after boot, including a hand-written MEMORY.md, are gone after the next
-restart, even though other config.yaml edits like platforms.line.* and the
-persistent volume in general survive). Copying from image-baked sources
-here, right before the gateway starts, guarantees both are present every
-boot regardless of whatever earlier step is clearing those two volume
-directories specifically.
+Earlier versions of this script (and bootstrap-model-config.py) hardcoded
+/opt/data instead of reading $HERMES_HOME. /opt/data is NOT the persistent
+volume — it lives on the container's own ephemeral root filesystem and gets
+recreated empty on every restart. $HERMES_HOME (/mnt/persist in this
+deployment) is the real persistent volume (a separate ext4 mount, confirmed
+via `mount` inside the container). Writing to /opt/data was a silent no-op:
+every boot recreated a fresh, empty scratch copy nobody read, while the
+actual plugin directory Hermes loads from ($HERMES_HOME/plugins) sat
+untouched since it was first manually seeded — so every plugin-code fix
+pushed to this repo after that point never reached the running gateway,
+even though the build/deploy pipeline itself succeeded. Confirmed by diffing
+$HERMES_HOME/plugins/todo-wiki/__init__.py against the image-baked source
+after a "successful" deploy: the persistent copy was still the original
+file from initial setup, missing every fix made since.
 
-Caveat: this only restores the FIXED baseline baked into the image at
-docker/memory/. Anything the agent itself learns and writes to MEMORY.md
-between boots is still lost on the next restart — same underlying
-limitation, just mitigated for facts important enough to hardcode here.
+$HERMES_HOME/memories/ is deliberately NOT touched here (removed from an
+earlier version of this script). It's real, persistent, and the agent
+actively writes to it between boots — a blind restore-from-image would
+have clobbered live learned memory the moment this script started pointing
+at the correct persistent path instead of the dead-end /opt/data one.
 """
+import os
 import shutil
 import sys
 from pathlib import Path
 
 import yaml
 
+HERMES_HOME = Path(os.environ["HERMES_HOME"])
 SRC = Path("/opt/hermes/docker/plugins")
-DST = Path("/opt/data/plugins")
-CONFIG_PATH = Path("/opt/data/config.yaml")
-MEMORY_SRC = Path("/opt/hermes/docker/memory")
-MEMORY_DST = Path("/opt/data/memories")
+DST = HERMES_HOME / "plugins"
+CONFIG_PATH = HERMES_HOME / "config.yaml"
 
 if not SRC.is_dir():
     print("bootstrap-plugins: no docker/plugins/ in image, skipping", file=sys.stderr)
@@ -70,15 +75,3 @@ else:
         yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
 
     print(f"bootstrap-plugins: plugins.enabled = {enabled}")
-
-if not MEMORY_SRC.is_dir():
-    print("bootstrap-plugins: no docker/memory/ in image, skipping", file=sys.stderr)
-else:
-    MEMORY_DST.mkdir(parents=True, exist_ok=True)
-    for mem_file in sorted(MEMORY_SRC.iterdir()):
-        if not mem_file.is_file():
-            continue
-        target = MEMORY_DST / mem_file.name
-        shutil.copy2(mem_file, target)
-        target.chmod(0o600)
-        print(f"bootstrap-plugins: restored memory file {mem_file.name}")
