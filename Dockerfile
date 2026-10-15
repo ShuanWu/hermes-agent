@@ -564,4 +564,9 @@ ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
 # restart). docker/bootstrap-plugins.py re-copies image-baked plugins from
 # docker/plugins/ into place and re-adds them to config.yaml's
 # plugins.enabled list on every boot for the same reason.
-CMD [ "sh", "-c", "python3 /opt/hermes/docker/bootstrap-model-config.py; python3 /opt/hermes/docker/bootstrap-plugins.py; exec hermes gateway run" ]
+#
+# v0.22+ multiplexes profiles and reads the default profile's secrets only from
+# $HERMES_HOME/.env, never os.environ. docker/bootstrap-env-secrets.py mirrors the
+# Zeabur service variables (TELEGRAM_BOT_TOKEN, OMNIROUTE_API_KEY, ...) into that
+# file on every boot so Zeabur stays the source of truth.
+CMD [ "sh", "-c", "python3 /opt/hermes/docker/bootstrap-env-secrets.py; python3 /opt/hermes/docker/bootstrap-model-config.py; python3 /opt/hermes/docker/bootstrap-plugins.py; exec hermes gateway run" ]
