@@ -26,16 +26,26 @@ a scratch file nobody read, while the config.yaml that actually mattered had
 to be fixed manually via `hermes config set` at some point in the past and
 just happened to keep working because /mnt/persist genuinely persists.
 """
+# 2026-10-24 (hp-server): no longer touches model.default / model.provider, the
+# fallback_providers order or the omniroute `models` list. Hermes now persists
+# those itself (provider is `custom:omniroute` since v0.22), and the old
+# whole-list overwrite of custom_providers would have wiped the curated model
+# list. Only base_url / api_key of the existing omniroute entry are synced from
+# env, so rotating OMNIROUTE_API_KEY needs just .env + restart. OMNIROUTE_MODEL
+# is ignored.
 import os
 import sys
 
-import yaml
+# Hermes unified on ruamel.yaml (upstream 284dbaf537); PyYAML is no longer in
+# the image, so `import yaml` crashed this script on every boot since v0.22.
+from hermes_yaml import roundtrip_yaml
+
+yaml = roundtrip_yaml()
 
 PATH = os.path.join(os.environ["HERMES_HOME"], "config.yaml")
 
 base_url = os.environ.get("OMNIROUTE_BASE_URL", "").strip()
 api_key = os.environ.get("OMNIROUTE_API_KEY", "").strip()
-model_default = os.environ.get("OMNIROUTE_MODEL", "").strip() or "auto/best-free"
 
 if not base_url or not api_key:
     print(
@@ -48,7 +58,7 @@ if not base_url or not api_key:
 os.makedirs(os.path.dirname(PATH), exist_ok=True)
 try:
     with open(PATH, encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or {}
+        cfg = yaml.load(f) or {}
 except FileNotFoundError:
     # First boot on a fresh/reset volume — hermes hasn't written its own
     # default config.yaml yet at this point in the boot sequence (this
@@ -56,18 +66,22 @@ except FileNotFoundError:
     # so the script still produces a valid config instead of crashing.
     cfg = {}
 
-cfg.setdefault("model", {})
-cfg["model"]["provider"] = "custom"
-cfg["model"]["base_url"] = base_url
-cfg["model"]["default"] = model_default
+model_cfg = cfg.get("model")
+if isinstance(model_cfg, dict) and str(model_cfg.get("provider", "")).startswith("custom"):
+    model_cfg["base_url"] = base_url
 
-cfg["custom_providers"] = [
-    {
-        "name": "omniroute",
-        "base_url": base_url,
-        "api_key": api_key,
-    }
-]
+providers = cfg.get("custom_providers")
+if not isinstance(providers, list):
+    providers = []
+    cfg["custom_providers"] = providers
+entry = next(
+    (p for p in providers if isinstance(p, dict) and p.get("name") == "omniroute"), None
+)
+if entry is None:
+    providers.append({"name": "omniroute", "base_url": base_url, "api_key": api_key})
+else:
+    entry["base_url"] = base_url
+    entry["api_key"] = api_key
 
 # Same reset behavior hits platforms.line.enabled (verified empirically:
 # `hermes config set platforms.line.enabled true` survives right up until
@@ -100,6 +114,6 @@ if os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
     telegram_cfg["enabled"] = True
 
 with open(PATH, "w", encoding="utf-8") as f:
-    yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
+    yaml.dump(cfg, f)
 
 print("bootstrap-model-config: applied omniroute custom provider config")

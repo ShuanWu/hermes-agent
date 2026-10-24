@@ -27,7 +27,11 @@ import shutil
 import sys
 from pathlib import Path
 
-import yaml
+# Hermes unified on ruamel.yaml (upstream 284dbaf537); PyYAML is no longer in
+# the image, so `import yaml` crashed this script on every boot since v0.22.
+from hermes_yaml import roundtrip_yaml
+
+yaml = roundtrip_yaml()
 
 HERMES_HOME = Path(os.environ["HERMES_HOME"])
 SRC = Path("/opt/hermes/docker/plugins")
@@ -53,7 +57,7 @@ else:
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
+            cfg = yaml.load(f) or {}
     except FileNotFoundError:
         # First boot on a fresh/reset volume — same race as
         # bootstrap-model-config.py, hermes hasn't written config.yaml yet.
@@ -72,6 +76,6 @@ else:
     cfg["plugins"] = plugins_cfg
 
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
+        yaml.dump(cfg, f)
 
     print(f"bootstrap-plugins: plugins.enabled = {enabled}")
