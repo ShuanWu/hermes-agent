@@ -47,7 +47,7 @@ import os
 import re
 import urllib.request
 
-TODO_API_URL = "https://macmini.taila4f347.ts.net/todo-api"
+TODO_API_URL = os.environ.get("TODO_API_URL", "http://todo-api:3457")
 TODO_API_KEY = os.environ.get("TODO_API_KEY", "")
 TIMEOUT = 15
 
